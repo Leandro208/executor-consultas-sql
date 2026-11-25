@@ -51,7 +51,7 @@ cp .env.example .env
 > `EXECUTOR_SECRET_KEY` precisa ser uma chave Fernet válida. Gere uma com:
 >
 > ```bash
-> python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+> python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 > ```
 
 ## Instalação
@@ -83,10 +83,13 @@ pip install -r requirements.txt --break-system-packages
 ## Executar localmente
 
 ```bash
-python run.py                 # http://127.0.0.1:5000
-python run.py --host 0.0.0.0 --port 8080
-python run.py --debug         # modo de desenvolvimento
+python3 run.py                 # http://127.0.0.1:5000
+python3 run.py --host 0.0.0.0 --port 8080
+python3 run.py --debug         # modo de desenvolvimento
 ```
+
+> Em sistemas onde `python` aponta para o Python 3 (ex.: Windows), os comandos
+> funcionam trocando `python3` por `python`.
 
 O banco de metadados é criado automaticamente em `instance/executor.db` na
 primeira execução.
@@ -184,7 +187,7 @@ chave nova). O sistema recria os arquivos vazios na próxima execução.
 | `password authentication failed` | Usuário/senha incorretos ou regra no `pg_hba.conf` |
 | `SSL error` / `server does not support SSL` | Ajuste o **SSL mode** da conexão (`disable`, `prefer`, `require`) |
 | `canceling statement due to statement timeout` | Aumente o timeout em **Configurações** |
-| Porta 5000 ocupada | Use `python run.py --port 8080` |
+| Porta 5000 ocupada | Use `python3 run.py --port 8080` |
 | `Nao foi possivel decifrar a senha da conexao` | `secret.key` foi trocada; recadastre a senha da conexão |
 | Página sem estilo | Confirme que `app/static/vendor/` está presente |
 
@@ -214,7 +217,7 @@ executor-sql/
 ## Testes
 
 ```bash
-pytest -q
+python3 -m pytest -q
 ```
 
 Os testes usam SQLite temporário e não precisam de um PostgreSQL em execução.
