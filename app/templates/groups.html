@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Grupos - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Grupos de consultas</h1>
+    <p class="text-body-secondary mb-0">
+      Organize as consultas por assunto. Cada consulta pertence a um grupo.
+    </p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#novoGrupoModal">
+    <i class="bi bi-plus-lg me-1"></i>Novo grupo
+  </button>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 40px"></th>
+          <th>Nome</th>
+          <th>Descricao</th>
+          <th class="text-center">Consultas</th>
+          <th class="text-center">Ordem</th>
+          <th class="text-end">Acoes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for grupo in grupos %}
+          <tr>
+            <td><span class="group-dot" style="background: {{ grupo.cor }}"></span></td>
+            <td class="fw-semibold">{{ grupo.nome }}</td>
+            <td class="text-body-secondary small">{{ grupo.descricao or "-" }}</td>
+            <td class="text-center">
+              <a class="badge text-bg-light border text-decoration-none"
+                 href="{{ url_for('queries.listar', grupo=grupo.id) }}">
+                {{ grupo.total_consultas }}
+              </a>
+            </td>
+            <td class="text-center">{{ grupo.ordem }}</td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-secondary"
+                      data-bs-toggle="modal" data-bs-target="#editarGrupo{{ grupo.id }}">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger"
+                      data-bs-toggle="modal" data-bs-target="#excluirGrupo{{ grupo.id }}">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-body-secondary py-4">
+              Nenhum grupo cadastrado.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal fade" id="novoGrupoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('groups.nova') }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Novo grupo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          <input class="form-control" name="nome" required maxlength="120" placeholder="Ex.: Estudantes">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descricao</label>
+          <input class="form-control" name="descricao" maxlength="255" placeholder="Opcional">
+        </div>
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label">Cor</label>
+            <input class="form-control form-control-color w-100" type="color" name="cor" value="#0d6efd">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Ordem</label>
+            <input class="form-control" type="number" name="ordem" value="0">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Criar grupo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% for grupo in grupos %}
+  <div class="modal fade" id="editarGrupo{{ grupo.id }}" tabindex="-1">
+    <div class="modal-dialog">
+      <form class="modal-content" method="post" action="{{ url_for('groups.editar', grupo_id=grupo.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar grupo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome</label>
+            <input class="form-control" name="nome" required maxlength="120" value="{{ grupo.nome }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Descricao</label>
+            <input class="form-control" name="descricao" maxlength="255" value="{{ grupo.descricao }}">
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Cor</label>
+              <input class="form-control form-control-color w-100" type="color" name="cor" value="{{ grupo.cor }}">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Ordem</label>
+              <input class="form-control" type="number" name="ordem" value="{{ grupo.ordem }}">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal fade" id="excluirGrupo{{ grupo.id }}" tabindex="-1">
+    <div class="modal-dialog">
+      <form class="modal-content" method="post" action="{{ url_for('groups.remover', grupo_id=grupo.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Excluir grupo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Excluir o grupo <strong>{{ grupo.nome }}</strong>?</p>
+          {% if grupo.total_consultas > 0 %}
+            <div class="alert alert-warning small mb-2">
+              Este grupo possui {{ grupo.total_consultas }} consulta(s).
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="mover_consultas" value="1"
+                     id="mover{{ grupo.id }}" checked>
+              <label class="form-check-label" for="mover{{ grupo.id }}">
+                Mover as consultas para "Sem grupo"
+              </label>
+            </div>
+          {% endif %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">Excluir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

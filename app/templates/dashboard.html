@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Inicio - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Consultas disponiveis</h1>
+    <p class="text-body-secondary mb-0">
+      {{ total_consultas }} consulta(s) ativa(s) em {{ grupos|length }} grupo(s).
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('groups.listar') }}">
+      <i class="bi bi-collection me-1"></i>Grupos
+    </a>
+    <a class="btn btn-primary" href="{{ url_for('queries.nova') }}">
+      <i class="bi bi-plus-lg me-1"></i>Nova consulta
+    </a>
+  </div>
+</div>
+
+<form class="row g-2 mb-4" method="get" action="{{ url_for('dashboard.index') }}">
+  <div class="col-md-9">
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" type="search" name="q" value="{{ busca }}"
+             placeholder="Buscar por nome, descricao ou trecho do SQL...">
+      <button class="btn btn-outline-primary" type="submit">Buscar</button>
+      {% if busca %}
+        <a class="btn btn-outline-secondary" href="{{ url_for('dashboard.index') }}">Limpar</a>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% if not grupos and not sem_grupo %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <i class="bi bi-inbox display-5 text-body-tertiary"></i>
+      <h2 class="h5 mt-3">Nenhuma consulta cadastrada ainda</h2>
+      <p class="text-body-secondary">
+        Comece cadastrando uma conexao com o PostgreSQL e depois crie suas consultas.
+      </p>
+      <a class="btn btn-primary" href="{{ url_for('connections.nova') }}">
+        <i class="bi bi-plug me-1"></i>Cadastrar conexao
+      </a>
+    </div>
+  </div>
+{% endif %}
+
+{% for grupo in grupos %}
+  {% set consultas = agrupadas.get(grupo.id, []) %}
+  {% if consultas or not busca %}
+    <section class="mb-4">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="group-dot" style="background: {{ grupo.cor }}"></span>
+        <h2 class="h5 mb-0">{{ grupo.nome }}</h2>
+        <span class="badge text-bg-light border">{{ consultas|length }}</span>
+        {% if grupo.descricao %}
+          <span class="text-body-secondary small ms-2">{{ grupo.descricao }}</span>
+        {% endif %}
+      </div>
+      {% if consultas %}
+        <div class="row g-3">
+          {% for consulta in consultas %}
+            <div class="col-lg-4 col-md-6">
+              <div class="card h-100 shadow-sm query-card">
+                <div class="card-body d-flex flex-column">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <h3 class="h6 mb-1">{{ consulta.nome }}</h3>
+                    {% if not consulta.ativo %}
+                      <span class="badge text-bg-secondary">inativa</span>
+                    {% endif %}
+                  </div>
+                  <p class="text-body-secondary small flex-grow-1 mb-2">
+                    {{ consulta.descricao or "Sem descricao." }}
+                  </p>
+                  <div class="d-flex flex-wrap gap-2 small text-body-secondary mb-3">
+                    <span><i class="bi bi-plug me-1"></i>{{ consulta.conexao.nome }}</span>
+                    <span><i class="bi bi-input-cursor-text me-1"></i>
+                      {{ consulta.parametros|length }} parametro(s)</span>
+                    <span><i class="bi bi-clock-history me-1"></i>
+                      {{ consulta.execucoes.count() }} execucao(oes)</span>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-primary flex-grow-1"
+                       href="{{ url_for('queries.executar_consulta', consulta_id=consulta.id) }}">
+                      <i class="bi bi-play-fill me-1"></i>Executar
+                    </a>
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="{{ url_for('queries.editar', consulta_id=consulta.id) }}" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-body-secondary small mb-0">Nenhuma consulta neste grupo.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+{% endfor %}
+
+{% if sem_grupo %}
+  <section class="mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="group-dot" style="background: #adb5bd"></span>
+      <h2 class="h5 mb-0">Sem grupo</h2>
+      <span class="badge text-bg-light border">{{ sem_grupo|length }}</span>
+    </div>
+    <div class="row g-3">
+      {% for consulta in sem_grupo %}
+        <div class="col-lg-4 col-md-6">
+          <div class="card h-100 shadow-sm query-card">
+            <div class="card-body d-flex flex-column">
+              <h3 class="h6 mb-1">{{ consulta.nome }}</h3>
+              <p class="text-body-secondary small flex-grow-1 mb-2">
+                {{ consulta.descricao or "Sem descricao." }}
+              </p>
+              <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-primary flex-grow-1"
+                   href="{{ url_for('queries.executar_consulta', consulta_id=consulta.id) }}">
+                  <i class="bi bi-play-fill me-1"></i>Executar
+                </a>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="{{ url_for('queries.editar', consulta_id=consulta.id) }}">
+                  <i class="bi bi-pencil"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+{% if nenhum_resultado %}
+  <div class="alert alert-info">Nenhum resultado para "{{ busca }}".</div>
+{% endif %}
+{% endblock %}

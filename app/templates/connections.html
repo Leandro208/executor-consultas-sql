@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Conexoes - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-1">Conexoes</h1>
+    <p class="text-body-secondary mb-0">
+      Bancos PostgreSQL usados pelas consultas. Recomenda-se um usuario somente leitura.
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('connections.nova') }}">
+    <i class="bi bi-plus-lg me-1"></i>Nova conexao
+  </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Nome</th>
+          <th>Servidor</th>
+          <th>Banco</th>
+          <th>Usuario</th>
+          <th class="text-center">Consultas</th>
+          <th class="text-end">Acoes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for conexao in conexoes %}
+          <tr>
+            <td class="fw-semibold">{{ conexao.nome }}</td>
+            <td class="text-body-secondary small">
+              {{ conexao.host }}:{{ conexao.porta }}
+              <span class="badge text-bg-light border ms-1">ssl={{ conexao.sslmode }}</span>
+            </td>
+            <td>{{ conexao.database }}</td>
+            <td>{{ conexao.usuario }}</td>
+            <td class="text-center">{{ conexao.total_consultas }}</td>
+            <td class="text-end text-nowrap">
+              <button class="btn btn-sm btn-outline-success btn-testar"
+                      data-url="{{ url_for('connections.testar', conexao_id=conexao.id) }}">
+                <i class="bi bi-lightning-charge"></i> Testar
+              </button>
+              <a class="btn btn-sm btn-outline-secondary"
+                 href="{{ url_for('connections.editar', conexao_id=conexao.id) }}">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form class="d-inline" method="post"
+                    action="{{ url_for('connections.remover', conexao_id=conexao.id) }}"
+                    onsubmit="return confirm('Excluir a conexao {{ conexao.nome }}?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="text-center text-body-secondary py-4">
+              Nenhuma conexao cadastrada.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="toastTeste" class="toast align-items-center text-bg-dark border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toastTesteTexto">Testando...</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.btn-testar').forEach(function (botao) {
+  botao.addEventListener('click', function () {
+    var url = botao.dataset.url;
+    var texto = document.getElementById('toastTesteTexto');
+    var toastEl = document.getElementById('toastTeste');
+    var toast = bootstrap.Toast.getOrCreateInstance(toastEl);
+    texto.textContent = 'Testando conexao...';
+    toast.show();
+    botao.disabled = true;
+
+    fetch(url, { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (dados) {
+        toastEl.classList.remove('text-bg-dark', 'text-bg-success', 'text-bg-danger');
+        toastEl.classList.add(dados.ok ? 'text-bg-success' : 'text-bg-danger');
+        texto.textContent = dados.ok
+          ? 'OK (' + dados.latencia_ms + ' ms): ' + dados.mensagem
+          : 'Falha (' + dados.latencia_ms + ' ms): ' + dados.mensagem;
+      })
+      .catch(function (erro) {
+        toastEl.classList.remove('text-bg-dark', 'text-bg-success');
+        toastEl.classList.add('text-bg-danger');
+        texto.textContent = 'Erro no teste: ' + erro;
+      })
+      .finally(function () {
+        botao.disabled = false;
+        toast.show();
+      });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if consulta.id else 'Nova' }} consulta - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">{{ 'Editar consulta' if consulta.id else 'Nova consulta' }}</h1>
+  <a class="btn btn-outline-secondary" href="{{ url_for('queries.listar') }}">
+    <i class="bi bi-arrow-left me-1"></i>Voltar
+  </a>
+</div>
+
+<form method="post" id="formConsulta" class="row g-3">
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Nome da consulta</label>
+          <input class="form-control" name="nome" required maxlength="160"
+                 value="{{ request.form.get('nome', consulta.nome or '') }}"
+                 placeholder="Ex.: Dados do usuario por ID">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descricao</label>
+          <input class="form-control" name="descricao" maxlength="400"
+                 value="{{ request.form.get('descricao', consulta.descricao or '') }}"
+                 placeholder="Para que serve esta consulta?">
+        </div>
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+          <label class="form-label mb-0" for="sql">SQL (somente leitura)</label>
+          <button class="btn btn-sm btn-outline-primary" type="button" id="btnDetectar">
+            <i class="bi bi-magic me-1"></i>Detectar parametros
+          </button>
+        </div>
+        <textarea class="form-control font-monospace" id="sql" name="sql" rows="14" required
+                  placeholder="SELECT u.id, u.nome FROM usuarios u WHERE u.id = :user_id">{{ request.form.get('sql', consulta.sql or '') }}</textarea>
+        <div class="form-text">
+          Use <code>:nome_do_parametro</code> para variaveis. Ex.:
+          <code>WHERE u.id = :user_id</code>. Somente SELECT/WITH.
+        </div>
+        <div id="avisoDeteccao" class="small mt-2"></div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-input-cursor-text me-1"></i>Parametros</span>
+        <span class="badge text-bg-light border" id="contadorParams">0</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 22%">Nome (SQL)</th>
+              <th style="width: 28%">Rotulo</th>
+              <th style="width: 16%">Tipo</th>
+              <th style="width: 12%" class="text-center">Obrigatorio</th>
+              <th>Valor padrao</th>
+            </tr>
+          </thead>
+          <tbody id="paramsBody"></tbody>
+        </table>
+      </div>
+      <div class="card-footer bg-transparent text-body-secondary small" id="paramsVazio">
+        Nenhum parametro detectado. Clique em "Detectar parametros" apos escrever o SQL.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Grupo</label>
+          <select class="form-select" name="grupo_id">
+            <option value="">Sem grupo</option>
+            {% set grupo_atual = request.form.get('grupo_id', consulta.grupo_id|string if consulta.grupo_id else '') %}
+            {% for grupo in grupos %}
+              <option value="{{ grupo.id }}" {{ 'selected' if grupo_atual == grupo.id|string }}>
+                {{ grupo.nome }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Conexao</label>
+          <select class="form-select" name="conexao_id" required>
+            {% set conexao_atual = request.form.get('conexao_id', consulta.conexao_id|string if consulta.conexao_id else '') %}
+            {% for conexao in conexoes %}
+              <option value="{{ conexao.id }}" {{ 'selected' if conexao_atual == conexao.id|string }}>
+                {{ conexao.nome }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% set ativo_marcado = ('ativo' in request.form) if request.method == 'POST' else (consulta.ativo if consulta.id else true) %}
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="ativo" name="ativo"
+                 {{ 'checked' if ativo_marcado }}>
+          <label class="form-check-label" for="ativo">Consulta ativa</label>
+        </div>
+        <div class="alert alert-info small mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          Consultas inativas nao aparecem no inicio, mas continuam acessiveis pelo menu.
+        </div>
+      </div>
+      <div class="card-footer bg-transparent d-grid gap-2">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-check-lg me-1"></i>Salvar consulta
+        </button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('queries.listar') }}">Cancelar</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script type="application/json" id="defsIniciais">{{ param_defs|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var defs = JSON.parse(document.getElementById('defsIniciais').textContent || '[]');
+  var corpo = document.getElementById('paramsBody');
+  var vazio = document.getElementById('paramsVazio');
+  var contador = document.getElementById('contadorParams');
+  var detectarUrl = "{{ url_for('queries.detectar') }}";
+
+  function escapar(valor) {
+    return String(valor == null ? '' : valor)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderizar() {
+    corpo.innerHTML = '';
+    defs.forEach(function (def, indice) {
+      var tr = document.createElement('tr');
+      var opcoes = ['texto', 'numero', 'data', 'booleano'].map(function (tipo) {
+        return '<option value="' + tipo + '"' + (def.tipo === tipo ? ' selected' : '') + '>' + tipo + '</option>';
+      }).join('');
+      tr.innerHTML =
+        '<td><code>:' + escapar(def.nome) + '</code></td>' +
+        '<td><input class="form-control form-control-sm" name="p_' + def.nome + '_rotulo" value="' + escapar(def.rotulo) + '" maxlength="160"></td>' +
+        '<td><select class="form-select form-select-sm" name="p_' + def.nome + '_tipo">' + opcoes + '</select></td>' +
+        '<td class="text-center"><input class="form-check-input" type="checkbox" name="p_' + def.nome + '_obrigatorio"' +
+          (def.obrigatorio ? ' checked' : '') + '></td>' +
+        '<td><input class="form-control form-control-sm" name="p_' + def.nome + '_padrao" value="' + escapar(def.valor_padrao) + '" maxlength="255"></td>';
+      corpo.appendChild(tr);
+    });
+    vazio.style.display = defs.length ? 'none' : '';
+    contador.textContent = defs.length;
+  }
+
+  document.getElementById('btnDetectar').addEventListener('click', function () {
+    var sql = document.getElementById('sql').value;
+    var aviso = document.getElementById('avisoDeteccao');
+    aviso.innerHTML = '<span class="text-body-secondary">Analisando...</span>';
+
+    var dados = new FormData();
+    dados.append('sql', sql);
+
+    fetch(detectarUrl, { method: 'POST', body: dados })
+      .then(function (r) { return r.json(); })
+      .then(function (resposta) {
+        var existentes = {};
+        defs.forEach(function (d) { existentes[d.nome] = d; });
+        var antes = defs.length;
+        defs = (resposta.params || []).map(function (p) {
+          return existentes[p.nome] || {
+            nome: p.nome, rotulo: p.rotulo, tipo: 'texto',
+            obrigatorio: true, valor_padrao: ''
+          };
+        });
+        renderizar();
+        var removidos = antes + defs.length - 2 * defs.filter(function (d) { return existentes[d.nome]; }).length;
+        aviso.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' +
+          defs.length + ' parametro(s) detectado(s).</span>';
+        if (removidos > 0) {
+          aviso.innerHTML += ' <span class="text-warning">Parametros removidos do SQL foram descartados.</span>';
+        }
+      })
+      .catch(function () {
+        aviso.innerHTML = '<span class="text-danger">Falha ao detectar parametros.</span>';
+      });
+  });
+
+  renderizar();
+})();
+</script>
+{% endblock %}

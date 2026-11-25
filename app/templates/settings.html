@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Configuracoes - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+  <h1 class="h3 mb-1">Configuracoes</h1>
+  <p class="text-body-secondary mb-0">Valores padrao aplicados a todas as execucoes.</p>
+</div>
+
+<form method="post" class="row g-3">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Limite de linhas padrao</label>
+          <input class="form-control" type="number" min="1" max="100000" name="limite_padrao"
+                 value="{{ cfg.limite_padrao }}" required>
+          <div class="form-text">
+            Quantidade inicial sugerida no seletor de limite ao abrir uma consulta.
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Timeout de execucao (segundos)</label>
+          <input class="form-control" type="number" min="5" max="3600" name="timeout_seg"
+                 value="{{ cfg.timeout_seg }}" required>
+          <div class="form-text">
+            Tempo maximo de uma consulta no banco. Consultas mais lentas sao canceladas.
+          </div>
+        </div>
+
+        <div class="mb-0">
+          <label class="form-label">Teto de linhas na exportacao</label>
+          <input class="form-control" type="number" min="1" max="1000000" name="teto_exportacao"
+                 value="{{ cfg.teto_exportacao }}" required>
+          <div class="form-text">
+            A exportacao reexecuta a consulta e traz no maximo esta quantidade de linhas.
+          </div>
+        </div>
+      </div>
+      <div class="card-footer bg-transparent">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-check-lg me-1"></i>Salvar configuracoes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="alert alert-warning">
+      <h2 class="h6"><i class="bi bi-shield-exclamation me-1"></i>Sem autenticacao</h2>
+      <p class="mb-0 small">
+        O sistema esta aberto na rede configurada. Qualquer pessoa com acesso a URL pode
+        executar consultas usando as credenciais cadastradas. Prefira um usuario de banco
+        somente leitura e mantenha o servidor restrito a rede interna.
+      </p>
+    </div>
+    <div class="alert alert-info mb-0">
+      <h2 class="h6"><i class="bi bi-database-gear me-1"></i>Conexoes somente leitura</h2>
+      <p class="mb-0 small">
+        Toda conexao e aberta com <code>default_transaction_read_only=on</code>, portanto
+        comandos de escrita sao recusados pelo PostgreSQL mesmo que a validacao seja
+        contornada.
+      </p>
+    </div>
+  </div>
+</form>
+{% endblock %}

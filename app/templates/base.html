@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Executor de Consultas SQL{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+  <div class="container-xxl">
+    <a class="navbar-brand fw-semibold" href="{{ url_for('dashboard.index') }}">
+      <i class="bi bi-database-fill-gear me-1"></i> Executor SQL
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="menuPrincipal">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.endpoint == 'dashboard.index' }}"
+             href="{{ url_for('dashboard.index') }}"><i class="bi bi-house-door me-1"></i>Inicio</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.blueprint == 'queries' }}"
+             href="{{ url_for('queries.listar') }}"><i class="bi bi-search me-1"></i>Consultas</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.blueprint == 'groups' }}"
+             href="{{ url_for('groups.listar') }}"><i class="bi bi-collection me-1"></i>Grupos</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.blueprint == 'connections' }}"
+             href="{{ url_for('connections.listar') }}"><i class="bi bi-plug me-1"></i>Conexoes</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.blueprint == 'history' }}"
+             href="{{ url_for('history.listar') }}"><i class="bi bi-clock-history me-1"></i>Historico</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.blueprint == 'settings' }}"
+             href="{{ url_for('settings.index') }}"><i class="bi bi-sliders me-1"></i>Configuracoes</a>
+        </li>
+      </ul>
+      <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#identityModal">
+        <i class="bi bi-person-circle me-1"></i>
+        {{ usuario_nome if usuario_nome else 'Identificar-se' }}
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="container-xxl py-4">
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% if mensagens %}
+      <div class="mb-3">
+        {% for categoria, texto in mensagens %}
+          <div class="alert alert-{{ categoria }} alert-dismissible fade show" role="alert">
+            {{ texto }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="border-top py-3 mt-5 text-center text-body-secondary small">
+  Executor de Consultas SQL Padronizadas &middot; uso interno
+</footer>
+
+<div class="modal fade" id="identityModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('dashboard.identidade') }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Identificacao no historico</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-body-secondary">
+          Sem login. O nome abaixo serve apenas para registrar quem executou cada consulta.
+        </p>
+        <label class="form-label" for="usuario_nome_input">Seu nome</label>
+        <input class="form-control" id="usuario_nome_input" name="usuario_nome"
+               value="{{ usuario_nome }}" maxlength="120" placeholder="Ex.: Maria Silva">
+        <input type="hidden" name="destino" value="{{ request.full_path }}">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

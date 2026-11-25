@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ consulta.nome }} - Executor SQL{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-1">
+      {{ consulta.nome }}
+      {% if not consulta.ativo %}<span class="badge text-bg-secondary align-middle">inativa</span>{% endif %}
+    </h1>
+    <p class="text-body-secondary mb-1">{{ consulta.descricao or "Sem descricao." }}</p>
+    <div class="small text-body-secondary d-flex flex-wrap gap-3">
+      <span>
+        <span class="group-dot" style="background: {{ consulta.grupo.cor if consulta.grupo else '#adb5bd' }}"></span>
+        {{ consulta.grupo.nome if consulta.grupo else "Sem grupo" }}
+      </span>
+      <span><i class="bi bi-plug me-1"></i>{{ consulta.conexao.nome }}</span>
+      <span><i class="bi bi-clock me-1"></i>timeout {{ config_global.timeout_seg }}s</span>
+    </div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('queries.editar', consulta_id=consulta.id) }}">
+    <i class="bi bi-pencil me-1"></i>Editar consulta
+  </a>
+</div>
+
+{% if pendentes %}
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Existem placeholders no SQL sem definicao:
+    {% for nome in pendentes %}<code>:{{ nome }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+    <a href="{{ url_for('queries.editar', consulta_id=consulta.id) }}">Abra a edicao</a> e clique em
+    "Detectar parametros".
+  </div>
+{% endif %}
+
+{% if erro_execucao %}
+  <div class="alert alert-danger">
+    <strong>Nao foi possivel executar.</strong>
+    <div class="mt-1 font-monospace small">{{ erro_execucao }}</div>
+  </div>
+{% endif %}
+
+<form method="post" class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    {% if consulta.parametros %}
+      <div class="row g-3">
+        {% for parametro in consulta.parametros_ordenados %}
+          <div class="col-md-6 col-lg-4">
+            <label class="form-label">
+              {{ parametro.rotulo or parametro.nome }}
+              {% if parametro.obrigatorio %}<span class="text-danger">*</span>{% endif %}
+              <code class="ms-1 small text-body-tertiary">:{{ parametro.nome }}</code>
+            </label>
+            {% if parametro.tipo == 'booleano' %}
+              <select class="form-select" name="param_{{ parametro.nome }}">
+                <option value="">(vazio)</option>
+                <option value="true" {{ 'selected' if valores.get(parametro.nome)|string|lower in ['true', '1', 'sim'] }}>verdadeiro</option>
+                <option value="false" {{ 'selected' if valores.get(parametro.nome)|string|lower in ['false', '0', 'nao'] }}>falso</option>
+              </select>
+            {% elif parametro.tipo == 'data' %}
+              <input class="form-control" type="date" name="param_{{ parametro.nome }}"
+                     value="{{ valores.get(parametro.nome, '') }}">
+            {% elif parametro.tipo == 'numero' %}
+              <input class="form-control" name="param_{{ parametro.nome }}" inputmode="decimal"
+                     value="{{ valores.get(parametro.nome, '') }}">
+            {% else %}
+              <input class="form-control" name="param_{{ parametro.nome }}"
+                     value="{{ valores.get(parametro.nome, '') }}"
+                     placeholder="{{ parametro.rotulo or parametro.nome }}">
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-body-secondary mb-0">
+        <i class="bi bi-info-circle me-1"></i>Esta consulta nao possui parametros.
+      </p>
+    {% endif %}
+  </div>
+  <div class="card-footer bg-transparent d-flex flex-wrap align-items-end gap-3">
+    <div>
+      <label class="form-label mb-1" for="limite">Limite de linhas</label>
+      <div class="d-flex gap-2">
+        <select class="form-select" id="limite" name="limite" style="width: 180px">
+          {% set opcoes = [10, 50, 100, 500, 1000, 5000] %}
+          {% for opcao in opcoes %}
+            <option value="{{ opcao }}" {{ 'selected' if limite == opcao }}>{{ opcao }}</option>
+          {% endfor %}
+          <option value="personalizado" {{ 'selected' if limite not in opcoes }}>personalizado</option>
+        </select>
+        <input class="form-control" type="number" min="1" max="100000" name="limite_personalizado"
+               id="limitePersonalizado" style="width: 140px"
+               value="{{ limite }}" {{ 'disabled' if limite in opcoes }}>
+      </div>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-primary" type="submit">
+        <i class="bi bi-play-fill me-1"></i>Executar
+      </button>
+    </div>
+  </div>
+</form>
+
+{% if resultado %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div class="d-flex flex-wrap gap-3 small">
+        <span><i class="bi bi-table me-1"></i><strong>{{ resultado.total_linhas }}</strong> linha(s)</span>
+        <span><i class="bi bi-stopwatch me-1"></i>{{ resultado.duration_ms }} ms</span>
+        {% if resultado.truncated %}
+          <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>ha mais resultados</span>
+        {% endif %}
+      </div>
+
+      <form id="formExportar" method="post" class="d-flex gap-2">
+        {% for parametro in consulta.parametros_ordenados %}
+          <input type="hidden" name="param_{{ parametro.nome }}"
+                 value="{{ valores.get(parametro.nome, '') }}">
+        {% endfor %}
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline-success" type="button" onclick="exportar('csv')">
+            <i class="bi bi-filetype-csv me-1"></i>CSV
+          </button>
+          <button class="btn btn-sm btn-outline-success" type="button" onclick="exportar('xlsx')">
+            <i class="bi bi-file-earmark-excel me-1"></i>XLSX
+          </button>
+          <button class="btn btn-sm btn-outline-success" type="button" onclick="exportar('json')">
+            <i class="bi bi-filetype-json me-1"></i>JSON
+          </button>
+        </div>
+      </form>
+    </div>
+
+    {% if resultado.truncated %}
+      <div class="alert alert-warning rounded-0 mb-0 py-2 small">
+        Exibindo as primeiras {{ resultado.total_linhas }} linhas. A exportacao traz ate
+        {{ config_global.teto_exportacao }} linhas.
+      </div>
+    {% endif %}
+
+    <div class="table-responsive result-table">
+      <table class="table table-sm table-striped table-hover mb-0">
+        <thead class="table-light sticky-top">
+          <tr>
+            {% for coluna in resultado.columns %}
+              <th class="text-nowrap">{{ coluna }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for linha in resultado.rows %}
+            <tr>
+              {% for valor in linha %}
+                <td class="text-nowrap">
+                  {% if valor is none %}<span class="text-body-tertiary">null</span>
+                  {% else %}{{ valor }}{% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="{{ resultado.columns|length }}" class="text-center text-body-secondary py-4">
+                Nenhuma linha retornada.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var select = document.getElementById('limite');
+  var campo = document.getElementById('limitePersonalizado');
+  select.addEventListener('change', function () {
+    campo.disabled = select.value !== 'personalizado';
+    if (!campo.disabled) { campo.focus(); }
+  });
+
+  window.exportar = function (formato) {
+    var form = document.getElementById('formExportar');
+    form.action = "{{ url_for('queries.exportar_consulta', consulta_id=consulta.id, formato='__FMT__') }}"
+      .replace('__FMT__', formato);
+    form.submit();
+  };
+})();
+</script>
+{% endblock %}
